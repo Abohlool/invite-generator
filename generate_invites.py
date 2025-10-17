@@ -17,6 +17,7 @@ This script:
 
 from pptx import Presentation
 from pptx.util import Pt
+from pptx.exc import PackageNotFoundError
 from pathlib import Path
 import subprocess
 
@@ -31,12 +32,23 @@ PLACEHOLDER = "{}"
 FONT_NAME = "2 Davat"
 FONT_SIZE = Pt(36)
 
+def check_dependency(command: str, name: str):
+    """Check if a required command is available."""
+    try:
+        subprocess.run([command, "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        print(f"❌ Error: {name} not installed or not in PATH.")
+        exit(1)
 
 
 def load_names(file_path: str) -> list[str]:
     """Return list of guest names from `file_path`."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        return [name.strip() for name in f.read().splitlines() if name.strip()]
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return [name.strip() for name in f.read().splitlines() if name.strip()]
+    except FileNotFoundError:
+        print(f"❌ Error: Names file not found → {file_path}")
+        return []
 
 
 def replace_placeholder(slide, name: str):
@@ -64,35 +76,75 @@ def save_and_convert(pptx_path: Path, output_path: Path):
         str(pptx_path),
         "--outdir", str(output_path),
     ]
-    subprocess.run(cmd, check=True)
-    pptx_path.unlink(missing_ok=True)
+    
+    try:
+        subprocess.run(cmd, check=True)
+        pptx_path.unlink(missing_ok=True)
+        
+    except FileNotFoundError:
+        print("❌ Error: LibreOffice not installed or not in PATH.")
+    
+    except subprocess.CalledProcessError as e:
+        print(f"❌ LibreOffice conversion failed for {pptx_path.name}: {e}")
 
 
 def create_invites(names: list[str]):
     """Generate invitation slides and export them as images."""
     OUTPUT_DIR.mkdir(exist_ok=True)
     
-    for name in names:
-        prs = Presentation(TEMPLATE_FILE)
-        slide = prs.slides[0]
+    total = len(names)
+    for i, name in enumerate(names, start=1):
+        print(f"🧩 Processing {i}/{total}: {name}")
         
+        try:
+            prs = Presentation(TEMPLATE_FILE)
+            
+        except PackageNotFoundError:
+            print(f"❌ Error: Template file not found → {TEMPLATE_FILE}")
+            return
+        
+        slide = prs.slides[0]
         replace_placeholder(slide, name)
         
         output_pptx = OUTPUT_DIR / f"دعوت‌نامه-{name.replace(' ', '-')}.pptx"
         prs.save(output_pptx)
         
-        save_and_convert(output_pptx, OUTPUT_DIR)
+        try:
+            save_and_convert(output_pptx, OUTPUT_DIR)
+            
+        except FileNotFoundError:
+            print("❌ Error: LibreOffice not found or conversion failed.")
+            return
 
 
 def compress_files(file_path: Path):
     """Compress generated images into a ZIP archive."""
-    if file_path.exists():
-        subprocess.run(["zip", "-r", ZIP_NAME, str(file_path)], check=True)
-    else:
+    if not file_path.exists():
         print(f"⚠️ Directory not found: {file_path}")
+        return
+    
+    try:
+        subprocess.run(["zip", "-r", ZIP_NAME, str(file_path)], check=True)
+    
+    except FileNotFoundError:
+        print("❌ Error: 'zip' command not found. Please install it.")
+        
+    except subprocess.CalledProcessError:
+        print("❌ Error: Failed to create ZIP archive.")
 
 
 if __name__ == "__main__":
-    names = load_names(NAMES_FILE)
-    create_invites(names)
-    compress_files(OUTPUT_DIR)
+    try:
+        check_dependency("libreoffice", "LibreOffice")
+        check_dependency("zip", "ZIP utility")
+        
+        names = load_names(NAMES_FILE)
+        if not names:
+            print("⚠️ No names found — exiting.")
+            exit(1)
+            
+        create_invites(names)
+        compress_files(OUTPUT_DIR)
+        
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
