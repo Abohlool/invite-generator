@@ -26,11 +26,7 @@ TEMPLATE_FILE = "invite.pptx"
 NAMES_FILE = "names.txt"
 OUTPUT_DIR = Path("./output-images")
 ZIP_NAME = "invitations.zip"
-
 PLACEHOLDER = "{}"
-
-FONT_NAME = "2 Davat"
-FONT_SIZE = Pt(36)
 
 
 def check_dependency(command: str, name: str):
@@ -62,10 +58,13 @@ def replace_placeholder(slide, name: str):
         for p in frame.paragraphs:
             for r in p.runs:
                 if PLACEHOLDER in r.text:
+                    font_name = r.font.name
+                    font_size = r.font.size
+                    
                     r.text = r.text.replace(PLACEHOLDER, name)
                     
-                    r.font.name = FONT_NAME
-                    r.font.size = FONT_SIZE
+                    r.font.name = font_name
+                    r.font.size = font_size
 
 
 def save_and_convert(pptx_path: Path, output_path: Path):
