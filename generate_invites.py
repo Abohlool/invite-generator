@@ -109,12 +109,7 @@ def create_invites(names: list[str]):
         output_pptx = OUTPUT_DIR / f"دعوت‌نامه-{name.replace(' ', '-')}.pptx"
         prs.save(output_pptx)
         
-        try:
-            save_and_convert(output_pptx, OUTPUT_DIR)
-            
-        except FileNotFoundError:
-            print("❌ Error: LibreOffice not found or conversion failed.")
-            return
+        save_and_convert(output_pptx, OUTPUT_DIR)
 
 
 def compress_files(file_path: Path):
