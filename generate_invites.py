@@ -32,6 +32,7 @@ PLACEHOLDER = "{}"
 FONT_NAME = "2 Davat"
 FONT_SIZE = Pt(36)
 
+
 def check_dependency(command: str, name: str):
     """Check if a required command is available."""
     try:
